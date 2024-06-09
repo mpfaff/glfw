@@ -32,8 +32,6 @@ jobs:
               run: cmake -B build -DCMAKE_BUILD_TYPE=Release -D GLFW_BUILD_WAYLAND=${{ matrix.wayland && 'ON' || 'OFF' }} -D GLFW_BUILD_X11=${{ matrix.x11 && 'ON' || 'OFF' }} -D BUILD_SHARED_LIBS=${{ matrix.shared && 'ON' || 'OFF' }}
             - name: Build library
               run: cmake --build build --parallel
-            - name: Debugging
-              run: tree build
             - name: Upload library
               uses: actions/upload-artifact@v4.3.3
               with:
@@ -61,12 +59,12 @@ jobs:
             - name: Build library
               run: cmake --build build --parallel
             - name: Debugging
-              run: tree build
+              run: ls -l build/src
             - name: Upload library
               uses: actions/upload-artifact@v4.3.3
               with:
                 name: glfw-macos${{ matrix.shared && '-shared' || '' }}${{ matrix.cocoa && '+cocoa' || '' }}
-                path: build
+                path: build/src/*.${{ matrix.shared && 'dylib' || 'a' }}
                 if-no-files-found: error
 
     build-windows-vs2022:
@@ -86,8 +84,6 @@ jobs:
               run: cmake -B build -DCMAKE_BUILD_TYPE=Release -G "Visual Studio 17 2022" -A ${{ matrix.arch == 'x32' && 'Win32' || 'x64' }} -D BUILD_SHARED_LIBS=${{ matrix.shared && 'ON' || 'OFF' }}
             - name: Build library
               run: cmake --build build --parallel
-            - name: Debugging
-              run: tree build
             - name: Upload library
               uses: actions/upload-artifact@v4.3.3
               with:
