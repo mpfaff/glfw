@@ -10,7 +10,12 @@ permissions:
 
 jobs:
     build-linux-clang:
-        name: Linux (Clang)
+        strategy:
+            matrix:
+                x11: [false, true]
+                wayland: [false, true]
+                shared: [true, false]
+        name: Linux (Clang) x11=${{ matrix.x11 }} wayland=${{ matrix.wayland }} shared=${{ matrix.shared }}
         runs-on: ubuntu-latest
         timeout-minutes: 4
         env:
@@ -23,33 +28,23 @@ jobs:
                   sudo apt update
                   sudo apt install libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libxext-dev libwayland-dev libxkbcommon-dev
 
-            - name: Configure Null shared library
-              run: cmake -B build-null-shared -D GLFW_BUILD_WAYLAND=OFF -D GLFW_BUILD_X11=OFF -D BUILD_SHARED_LIBS=ON
-            - name: Build Null shared library
-              run: cmake --build build-null-shared --parallel
-
-            - name: Configure X11 shared library
-              run: cmake -B build-x11-shared -D GLFW_BUILD_WAYLAND=OFF -D GLFW_BUILD_X11=ON -D BUILD_SHARED_LIBS=ON
-            - name: Build X11 shared library
-              run: cmake --build build-x11-shared --parallel
-
-            - name: Configure Wayland shared library
-              run: cmake -B build-wayland-shared -D GLFW_BUILD_WAYLAND=ON -D GLFW_BUILD_X11=OFF -D BUILD_SHARED_LIBS=ON
-            - name: Build Wayland shared library
-              run: cmake --build build-wayland-shared --parallel
-
-            - name: Configure Wayland+X11 static library
-              run: cmake -B build-full-static -D GLFW_BUILD_WAYLAND=ON -D GLFW_BUILD_X11=ON
-            - name: Build Wayland+X11 static library
-              run: cmake --build build-full-static --parallel
-
-            - name: Configure Wayland+X11 shared library
-              run: cmake -B build-full-shared -D GLFW_BUILD_WAYLAND=ON -D BUILD_SHARED_LIBS=ON -D GLFW_BUILD_X11=ON
-            - name: Build Wayland+X11 shared library
-              run: cmake --build build-full-shared --parallel
+            - name: Configure library
+              run: cmake -B build -D GLFW_BUILD_WAYLAND=${{ matrix.wayland && "ON" || "OFF" }} -D GLFW_BUILD_X11=${{ matrix.x11 && "ON" || "OFF" }} -D BUILD_SHARED_LIBS=${{ matrix.shared && "ON" || "OFF" }}
+            - name: Build library
+              run: cmake --build build --parallel
+            - name: Upload library
+              uses: actions/upload-artifact@v4.3.3
+              with:
+                name: glfw${{ matrix.shared && '-shared' || '' }}${{ matrix.wayland && '+wayland' || '' }}${{ matrix.x11 && '+x11' || '' }}
+                path: build
+                if-no-files-found: error
 
     build-macos-clang:
-        name: macOS (Clang)
+        strategy:
+            matrix:
+                cocoa: [false, true]
+                shared: [true, false]
+        name: macOS (Clang) cocoa=${{ matrix.cocoa }} shared=${{ matrix.shared }}
         runs-on: macos-latest
         timeout-minutes: 4
         env:
@@ -59,23 +54,23 @@ jobs:
         steps:
             - uses: actions/checkout@v4
 
-            - name: Configure Null shared library
-              run: cmake -B build-null-shared -D GLFW_BUILD_COCOA=OFF -D BUILD_SHARED_LIBS=ON
-            - name: Build Null shared library
-              run: cmake --build build-null-shared --parallel
-
-            - name: Configure Cocoa static library
-              run: cmake -B build-cocoa-static
-            - name: Build Cocoa static library
-              run: cmake --build build-cocoa-static --parallel
-
-            - name: Configure Cocoa shared library
-              run: cmake -B build-cocoa-shared -D BUILD_SHARED_LIBS=ON
-            - name: Build Cocoa shared library
-              run: cmake --build build-cocoa-shared --parallel
+            - name: Configure library
+              run: cmake -B build -D GLFW_BUILD_COCOA=${{ matrix.cocoa && "ON" || "OFF" }} -D BUILD_SHARED_LIBS=${{ matrix.shared && "ON" || "OFF" }}
+            - name: Build library
+              run: cmake --build build --parallel
+            - name: Upload library
+              uses: actions/upload-artifact@v4.3.3
+              with:
+                name: glfw${{ matrix.shared && '-shared' || '' }}${{ matrix.cocoa && '+cocoa' || '' }}
+                path: build
+                if-no-files-found: error
 
     build-windows-vs2022:
-        name: Windows (VS2022)
+        strategy:
+            matrix:
+                arch: [x32, x64]
+                shared: [true, false]
+        name: Windows (VS2022) arch=${{ matrix.arch }} shared=${{ matrix.shared }}
         runs-on: windows-latest
         timeout-minutes: 4
         env:
@@ -83,18 +78,13 @@ jobs:
         steps:
             - uses: actions/checkout@v4
 
-            - name: Configure Win32 shared x86 library
-              run: cmake -B build-win32-shared-x86 -G "Visual Studio 17 2022" -A Win32 -D BUILD_SHARED_LIBS=ON
-            - name: Build Win32 shared x86 library
-              run: cmake --build build-win32-shared-x86 --parallel
-
-            - name: Configure Win32 static x64 library
-              run: cmake -B build-win32-static-x64 -G "Visual Studio 17 2022" -A x64
-            - name: Build Win32 static x64 library
-              run: cmake --build build-win32-static-x64 --parallel
-
-            - name: Configure Win32 shared x64 library
-              run: cmake -B build-win32-shared-x64 -G "Visual Studio 17 2022" -A x64 -D BUILD_SHARED_LIBS=ON
-            - name: Build Win32 shared x64 library
-              run: cmake --build build-win32-shared-x64 --parallel
-
+            - name: Configure library
+              run: cmake -B build -G "Visual Studio 17 2022" -A ${{ matrix.arch == "x32" && "Win32" || "x64" }} -D BUILD_SHARED_LIBS=${{ matrix.shared && "ON" || "OFF" }}
+            - name: Build library
+              run: cmake --build build --parallel
+            - name: Upload library
+              uses: actions/upload-artifact@v4.3.3
+              with:
+                name: glfw-${{ matrix.arch }}${{ matrix.shared && '-shared' || '' }}
+                path: build
+                if-no-files-found: error
